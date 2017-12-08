@@ -1,5 +1,7 @@
+import asyncio
+
 from queue import Queue
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Any, AsyncIterable
 from threading import Lock, Thread, Event
 import time
 import logging
@@ -15,6 +17,8 @@ __maintainer__ = "Bogdan Gladyshev"
 __email__ = "siredvin.dark@gmail.com"
 __status__ = "Production"
 
+__all__ = ['AsyncConnectionPool', 'fetch_cursor']
+
 _log = logging.getLogger(__name__)
 
 
@@ -22,15 +26,31 @@ class PoolException(Exception):
     pass
 
 
+async def fetch_cursor(cursor) -> AsyncIterable[Dict[str, Any]]:
+    while await cursor.fetch_next():
+        yield await cursor.next()
+
+
 class AsyncConnectionWrapper(object):
 
     def __init__(self, pool: 'AsyncConnectionPool', conn=None, **kwargs) -> None:
         self._pool = pool
-        if conn is None:
-            self._conn = R.connect(**kwargs)
+        self._conn = conn
+        self._connection_kwargs = kwargs
+        if conn is not None:
+            self.connected_at = time.time()
         else:
-            self._conn = conn
+            self.connected_at = None
+
+    async def init_wrapper(self) -> None:
+        if self._conn is None:
+            self._conn = await R.connect(**self._connection_kwargs)
         self.connected_at = time.time()
+
+    @property
+    def expire(self) -> bool:
+        now = time.time()
+        return (now - self.connected_at) > self._pool.connection_ttl
 
     @property
     def connection(self):
@@ -44,29 +64,14 @@ class AsyncConnectionContextManager:
         self.timeout: Optional[int] = timeout
         self.conn: AsyncConnectionWrapper = None
 
-    def __enter__(self) -> AsyncConnectionWrapper:
-        self.conn = self.pool.acquire(self.timeout)
+    async def __aenter__(self) -> AsyncConnectionWrapper:
+        self.conn = await self.pool.acquire(self.timeout)
         return self.conn
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.conn:
-            self.pool.release(self.conn)
+            await self.pool.release(self.conn)
 
-
-class AsyncConnectionPoolCleanupThread(Thread):
-
-    def __init__(self, stop_event: Event, cleanup_timeout: int, pool: 'AsyncConnectionPool') -> None:
-        super().__init__(daemon=True)
-        self.stop_event = stop_event
-        self.cleanup_timeout = cleanup_timeout
-        self.pool = pool
-
-    def run(self) -> None:
-        _log.debug("Starting cleanup thread")
-        while not self.stop_event.is_set():
-            self.stop_event.wait(self.cleanup_timeout)
-            self.pool.cleanup()
-        _log.debug("Cleanup thread ending")
 
 class AsyncConnectionPool(object):
 
@@ -81,30 +86,23 @@ class AsyncConnectionPool(object):
         self._pool = Queue()
         self._pool_lock = Lock()
         self._pool_lock.acquire()
-        for _ in range(0, self.pool_size):
-            self._pool.put(self.new_conn())
         self._current_acquired = 0
         self._pool_lock.release()
 
-        if self.cleanup_timeout > 0:
-            self._cleanup_stop_event = Event()
-            self._cleanup_thread = AsyncConnectionPoolCleanupThread(
-                self._cleanup_stop_event,
-                self.cleanup_timeout,
-                self
-            )
-            self._cleanup_thread.start()
-        else:
-            self._cleanup_thread = None
+    async def init_pool(self) -> None:
+        for _ in range(0, self.pool_size):
+            self._pool.put(await self.new_conn())
 
-    def new_conn(self) -> AsyncConnectionWrapper:
+    async def new_conn(self) -> AsyncConnectionWrapper:
         """
         Create a new AsyncConnectionWrapper instance
         """
         _log.debug("Opening new connection to rethinkdb with args=%s", self.connection_kwargs)
-        return AsyncConnectionPool(self._pool, **self.connection_kwargs)
+        connection_wrapper = AsyncConnectionWrapper(self, **self.connection_kwargs)
+        await connection_wrapper.init_wrapper()
+        return connection_wrapper
 
-    def acquire(self, timeout: Optional[int] = None):
+    async def acquire(self, timeout: Optional[int] = None):
         """Acquire a connection
         :param timeout: If provided, seconds to wait for a connection before raising
             Queue.Empty. If not provided, blocks indefinitely.
@@ -116,11 +114,15 @@ class AsyncConnectionPool(object):
             conn_wrapper = self._pool.get_nowait()
         else:
             conn_wrapper = self._pool.get(True, timeout)
+        if conn_wrapper.expire:
+            _log.debug('Recreate connection due to ttl expire')
+            await conn_wrapper.connection.close()
+            conn_wrapper = await self.new_conn()
         self._current_acquired += 1
         self._pool_lock.release()
         return conn_wrapper.connection
 
-    def release(self, conn) -> None:
+    async def release(self, conn) -> None:
         """Release a previously acquired connection.
         The connection is put back into the pool."""
         self._pool_lock.acquire()
@@ -128,42 +130,18 @@ class AsyncConnectionPool(object):
         self._current_acquired -= 1
         self._pool_lock.release()
 
+    @property
     def empty(self) -> bool:
         return self._pool.empty()
 
-    def release_pool(self) -> None:
+    async def release_pool(self) -> None:
         """Release pool and all its connection"""
         if self._current_acquired > 0:
             raise PoolException("Can't release pool: %d connection(s) still acquired" % self._current_acquired)
         while not self._pool.empty():
             conn = self.acquire()
-            conn.close()
-        if self._cleanup_thread is not None:
-            self._cleanup_stop_event.set()
-            self._cleanup_thread.join()
+            await conn.close()
         self._pool = None
-
-    def cleanup(self) -> None:
-        _log.debug("Cleanup function running...")
-        now = time.time()
-        queue_tmp = Queue()
-        try:
-            self._pool_lock.acquire()
-            cleaned_connections_count = 0
-            while not self._pool.empty():
-                conn_wrapper = self._pool.get_nowait()
-                if (now - conn_wrapper.connected_at) > self.connection_ttl:
-                    conn_wrapper.connection.close()
-                    del conn_wrapper
-                    queue_tmp.put(self.new_conn())
-                    cleaned_connections_count += 1
-                else:
-                    queue_tmp.put(conn_wrapper)
-            self._pool = queue_tmp
-            self._pool_lock.release()
-            _log.debug("%d connection(s) cleaned", cleaned_connections_count)
-        except Exception as e:
-            _log.exception(e)
 
     def connect(self, timeout: Optional[int] = None) -> AsyncConnectionContextManager:
         '''Acquire a new connection with `with` statement and auto release the connection after

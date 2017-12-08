@@ -1,3 +1,5 @@
+from .async_pool import *
+
 __author__ = "Bogdan Gladyshev"
 __copyright__ = "Copyright 2017, Bogdan Gladyshev"
 __credits__ = ["Bogdan Gladyshev"]
