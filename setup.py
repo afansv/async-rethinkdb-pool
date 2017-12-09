@@ -11,25 +11,21 @@ with open('README.rst') as readme_file:
 
 
 setup(
-    name='errbot_rethinkdb_storage',
-    version='1.0.4',
-    description="RethinkDB storage plugin for ErrBot",
-    long_description=readme + '\n\n' + history,
+    name='async_repool',
+    version='0.1.0',
+    description="AsyncIO connection pool for RethinkDB",
+    long_description=readme,
     author="Bogdan Gladyshev",
     author_email='siredvin.dark@gmail.com',
-    url='https://gitlab.com/AnjiProject/errbot-rethinkdb-storage',
-    packages=find_packages(include=['errbot_rethinkdb_storage']),
+    url='https://gitlab.com/AnjiProject/async-repool',
+    packages=find_packages(include=['async_repool']),
     include_package_data=True,
     install_requires=[
-        "rethinkdb==2.3.0.post6",
-        "errbot>=5.1.0"
-    ],
-    dependency_links=[
-        "git+https://github.com/njouanin/repool"
+        "rethinkdb>=2.3.0.post6"
     ],
     license="MIT license",
     zip_safe=False,
-    keywords='errbot_rethinkdb_storage',
+    keywords='rethinkdb asyncio connection pool',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

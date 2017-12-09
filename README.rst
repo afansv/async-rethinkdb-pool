@@ -17,7 +17,7 @@ Installation
 
 .. code:: bash
 
-    $ pip install async-repool
+    $ pip install async_repool
 
 This will install :code:`async-repool` as well as rethinkdb dependency.
 
