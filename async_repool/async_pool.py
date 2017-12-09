@@ -1,8 +1,6 @@
-import asyncio
+from asyncio import Queue, Lock
 
-from queue import Queue
 from typing import Dict, Union, Optional, Any, AsyncIterable
-from threading import Lock, Thread, Event
 import time
 import logging
 
@@ -59,13 +57,12 @@ class AsyncConnectionWrapper(object):
 
 class AsyncConnectionContextManager:
 
-    def __init__(self, pool: 'AsyncConnectionPool', timeout: Optional[int] = None) -> None:
+    def __init__(self, pool: 'AsyncConnectionPool') -> None:
         self.pool: 'AsyncConnectionPool' = pool
-        self.timeout: Optional[int] = timeout
         self.conn: AsyncConnectionWrapper = None
 
     async def __aenter__(self) -> AsyncConnectionWrapper:
-        self.conn = await self.pool.acquire(self.timeout)
+        self.conn = await self.pool.acquire()
         return self.conn
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -85,13 +82,11 @@ class AsyncConnectionPool(object):
         self.cleanup_timeout = cleanup_timeout
         self._pool = Queue()
         self._pool_lock = Lock()
-        self._pool_lock.acquire()
         self._current_acquired = 0
-        self._pool_lock.release()
 
     async def init_pool(self) -> None:
         for _ in range(0, self.pool_size):
-            self._pool.put(await self.new_conn())
+            await self._pool.put(await self.new_conn())
 
     async def new_conn(self) -> AsyncConnectionWrapper:
         """
@@ -102,18 +97,15 @@ class AsyncConnectionPool(object):
         await connection_wrapper.init_wrapper()
         return connection_wrapper
 
-    async def acquire(self, timeout: Optional[int] = None):
+    async def acquire(self):
         """Acquire a connection
         :param timeout: If provided, seconds to wait for a connection before raising
             Queue.Empty. If not provided, blocks indefinitely.
         :returns: Returns a RethinkDB connection
         :raises Empty: No resources are available before timeout.
         """
-        self._pool_lock.acquire()
-        if timeout is None:
-            conn_wrapper = self._pool.get_nowait()
-        else:
-            conn_wrapper = self._pool.get(True, timeout)
+        await self._pool_lock.acquire()
+        conn_wrapper = await self._pool.get()
         if conn_wrapper.expire:
             _log.debug('Recreate connection due to ttl expire')
             await conn_wrapper.connection.close()
@@ -125,8 +117,8 @@ class AsyncConnectionPool(object):
     async def release(self, conn) -> None:
         """Release a previously acquired connection.
         The connection is put back into the pool."""
-        self._pool_lock.acquire()
-        self._pool.put(AsyncConnectionWrapper(self._pool, conn))
+        await self._pool_lock.acquire()
+        await self._pool.put(AsyncConnectionWrapper(self, conn))
         self._current_acquired -= 1
         self._pool_lock.release()
 
@@ -139,15 +131,15 @@ class AsyncConnectionPool(object):
         if self._current_acquired > 0:
             raise PoolException("Can't release pool: %d connection(s) still acquired" % self._current_acquired)
         while not self._pool.empty():
-            conn = self.acquire()
+            conn = await self.acquire()
             await conn.close()
         self._pool = None
 
-    def connect(self, timeout: Optional[int] = None) -> AsyncConnectionContextManager:
+    def connect(self) -> AsyncConnectionContextManager:
         '''Acquire a new connection with `with` statement and auto release the connection after
             go out the with block
         :param timeout: @see #aquire
         :returns: Returns a RethinkDB connection
         :raises Empty: No resources are available before timeout.
         '''
-        return AsyncConnectionContextManager(self, timeout)
+        return AsyncConnectionContextManager(self)
