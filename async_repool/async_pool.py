@@ -25,6 +25,10 @@ class PoolException(Exception):
 
 
 async def fetch_cursor(cursor) -> AsyncIterable[Dict[str, Any]]:
+    """
+    Additonal method that wraps asyncio rethinkDB cursos to AsyncIterable.
+    Just util method to allow async for usage
+    """
     while await cursor.fetch_next():
         yield await cursor.next()
 
@@ -47,6 +51,8 @@ class AsyncConnectionWrapper(object):
 
     @property
     def expire(self) -> bool:
+        if not self._pool.connection_ttl:
+            return False
         now = time.time()
         return (now - self.connected_at) > self._pool.connection_ttl
 
@@ -74,12 +80,10 @@ class AsyncConnectionPool(object):
 
     def __init__(
             self, rethinkdb_connection_kwargs: Dict[str, Union[str, int]],
-            pool_size: int = 10, connection_ttl: int = 3600,
-            cleanup_timeout: int = 60) -> None:
+            pool_size: int = 3, connection_ttl: int = 3600) -> None:
         self.pool_size = pool_size
         self.connection_ttl = connection_ttl
         self.connection_kwargs = rethinkdb_connection_kwargs
-        self.cleanup_timeout = cleanup_timeout
         self._pool = Queue()
         self._pool_lock = Lock()
         self._current_acquired = 0
@@ -98,9 +102,8 @@ class AsyncConnectionPool(object):
         return connection_wrapper
 
     async def acquire(self):
-        """Acquire a connection
-        :param timeout: If provided, seconds to wait for a connection before raising
-            Queue.Empty. If not provided, blocks indefinitely.
+        """
+        Acquire a connection
         :returns: Returns a RethinkDB connection
         :raises Empty: No resources are available before timeout.
         """
@@ -115,8 +118,10 @@ class AsyncConnectionPool(object):
         return conn_wrapper.connection
 
     async def release(self, conn) -> None:
-        """Release a previously acquired connection.
-        The connection is put back into the pool."""
+        """
+        Release a previously acquired connection.
+        The connection is put back into the pool.
+        """
         await self._pool_lock.acquire()
         await self._pool.put(AsyncConnectionWrapper(self, conn))
         self._current_acquired -= 1
