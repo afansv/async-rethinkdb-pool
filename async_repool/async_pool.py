@@ -1,6 +1,6 @@
 from asyncio import Queue, Lock
 
-from typing import Dict, Union, Optional, Any, AsyncIterable
+from typing import Dict, Union, Any, AsyncIterable
 import time
 import logging
 
@@ -55,7 +55,7 @@ class AsyncConnectionWrapper(object):
         return self._conn
 
 
-class AsyncConnectionContextManager:
+class AsyncConnectionContextManager:  # pylint: disable=too-few-public-methods
 
     def __init__(self, pool: 'AsyncConnectionPool') -> None:
         self.pool: 'AsyncConnectionPool' = pool
