@@ -12,7 +12,7 @@ with open('README.rst') as readme_file:
 
 setup(
     name='async_repool',
-    version='0.1.0',
+    version='0.1.1',
     description="AsyncIO connection pool for RethinkDB",
     long_description=readme,
     author="Bogdan Gladyshev",
