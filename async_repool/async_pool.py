@@ -15,7 +15,7 @@ __maintainer__ = "Bogdan Gladyshev"
 __email__ = "siredvin.dark@gmail.com"
 __status__ = "Production"
 
-__all__ = ['AsyncConnectionPool', 'fetch_cursor']
+__all__ = ['AsyncConnectionPool', 'fetch_cursor', 'PoolException']
 
 _log = logging.getLogger(__name__)
 
