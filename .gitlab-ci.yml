@@ -6,6 +6,7 @@ before_script:
 
 stages:
   - test
+  - upload
 
 check-code:
   stage: test
@@ -14,3 +15,11 @@ check-code:
 run-test:
   stage: test
   script: pytest
+
+upload-to-pypi:
+  stage: upload
+  script:
+    - python setup bdist_wheel
+    - twine upload dist/* --repository-url https://test.pypi.org/legacy/
+  only:
+    - tags

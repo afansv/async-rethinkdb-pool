@@ -3,6 +3,7 @@
 __pycache__
 test.py
 dist/
+build/
 *.egg-info
 .idea
 .mypy_cache
