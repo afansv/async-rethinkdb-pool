@@ -2,4 +2,4 @@ image: "python:3.6"
 
 test:
   script:
-    pip install -r requirements-dev.txt && make check
+    pip install -e . && pip install -r requirements-dev.txt && make check
