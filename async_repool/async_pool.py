@@ -84,7 +84,7 @@ class AsyncConnectionPool(object):
         self.pool_size = pool_size
         self.connection_ttl = connection_ttl
         self.connection_kwargs = rethinkdb_connection_kwargs
-        self._pool = Queue()
+        self._pool: Queue = Queue()
         self._pool_lock = Lock()
         self._current_acquired = 0
 
