@@ -5,11 +5,12 @@ before_script:
   - pip install -r requirements-dev.txt
 
 stages:
-  - cq
   - test
 
-cq:
+check-code:
+  stage: test
   script: make check
 
-test:
+run-test:
+  stage: test
   script: pytest
