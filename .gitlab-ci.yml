@@ -19,7 +19,7 @@ run-test:
 upload-to-pypi:
   stage: upload
   script:
-    - python setup bdist_wheel
+    - python setup.py bdist_wheel
     - twine upload dist/* --repository-url https://test.pypi.org/legacy/
   only:
     - tags
