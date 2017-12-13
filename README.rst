@@ -2,6 +2,8 @@
 AsyncIO RethinkDB connection pool
 =================================
 
+https://gitlab.com/AnjiProject/async-repool/badges/master/build.svg
+
 :Project version: v0.1.0
 
 :code:`async-repool` is a Python library which provides a asyncio-based connection pool management for accessing a RethinkDB database. :code:`async-repool` creates and maintains a configurable pool of active connection to a RethinkDB database. These connections are then available individually through a basic API.
