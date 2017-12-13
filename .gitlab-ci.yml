@@ -1,8 +1,15 @@
 image: "python:3.6"
 
+before_script:
+  - pip install .
+  - pip install -r requirements-dev.txt
+
+stages:
+  - cq
+  - test
+
+cq:
+  script: make check
+
 test:
-  script:
-    - pip install -e .
-    - pip install -r requirements-dev.txt
-    - make check
-    - pytest
+  script: pytest
