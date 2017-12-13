@@ -1,0 +1,4 @@
+pylint>=1.7.4
+pylint-common>=0.2.5
+mypy>=0.550
+pycodestyle>=2.3.1
