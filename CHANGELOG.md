@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- MIT License
+- Some badges to readme
+
 ### Fixed
 
 - Mypy problems with variable types
