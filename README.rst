@@ -3,10 +3,10 @@ AsyncIO RethinkDB connection pool
 =================================
 
 
-.. image:: https://img.shields.io/pypi/v/anji-core.svg
-        :target: https://pypi.python.org/pypi/anji-core
-.. image:: https://img.shields.io/pypi/l/anji-core.svg
-        :target: https://pypi.python.org/pypi/anji-core
+.. image:: https://img.shields.io/pypi/v/async-repool.svg
+        :target: https://pypi.python.org/pypi/async-repool
+.. image:: https://img.shields.io/pypi/l/async-repool.svg
+        :target: https://pypi.python.org/pypi/async-repool
 .. image:: https://gitlab.com/AnjiProject/async-repool/badges/master/build.svg
         :target: https://gitlab.com/AnjiProject/async-repool
 
