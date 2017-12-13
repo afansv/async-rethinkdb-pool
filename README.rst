@@ -22,7 +22,6 @@ Installation
 :code:`async-repool` is available as a python library on Pypi. Installation is very simple using pip :
 
 .. code:: bash
-
     $ pip install async_repool
 
 This will install :code:`async-repool` as well as rethinkdb dependency.
@@ -33,7 +32,6 @@ Basic usage
 A new connection pool using default connection configurations can simply be created by:
 
 .. code:: python
-
     from async_repool import AsyncConnectionPool
 
     pool = AsyncConnectionPool(dict())  # Required argument is kwargs for R.connect function
