@@ -11,14 +11,14 @@ with open('README.rst') as readme_file:
 
 
 setup(
-    name='async_repool',
+    name='async-repool',
     version='0.1.1',
     description="AsyncIO connection pool for RethinkDB",
     long_description=readme,
     author="Bogdan Gladyshev",
     author_email='siredvin.dark@gmail.com',
     url='https://gitlab.com/AnjiProject/async-repool',
-    packages=find_packages(include=['async_repool']),
+    packages=find_packages(),
     include_package_data=True,
     install_requires=[
         "rethinkdb>=2.3.0.post6"
